@@ -3,8 +3,11 @@ pipeline {
     stages {
         stage('Hello') {
             steps {
-                echo 'Hello from Git!'
-                sh 'ls -l'  // Optional: List files to verify workspace
+                script {
+                    echo "Running on node: ${env.NODE_NAME}"
+                    echo "Is this the master? ${env.NODE_NAME == 'master' ? 'YES' : 'NO'}"
+                    sh 'hostname'  // Prints the hostname of the agent/master
+                }
             }
         }
     }
