@@ -1,0 +1,110 @@
+secrets:
+  agent_secret:
+    file: ./conf/agent-secret.txt
+services:
+  jenkins-master:
+    image: jenkins/jenkins:lts
+    container_name: jenkins-master
+    ports:
+      - "8080:8080"   # Web UI
+      - "50000:50000" # Agent communication
+    volumes:
+      - jenkins_ha:/var/jenkins_home  # Shared volume for HA
+      #- jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock  # Allow Docker-outside-Docker (DoD)
+      - ./conf/plugins.txt:/usr/share/jenkins/ref/plugins.txt  # Pre-install plugins
+      - ./conf/jcasc.yaml:/var/jenkins_home/jcasc.yaml  # Configuration-as-Code
+      - ./conf/init.groovy.d:/var/jenkins_home/init.groovy.d
+    environment:
+      #JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"  # Skip setup wizard (POC only)
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Djenkins.model.Jenkins.slaveAgentPort=50000"
+      JENKINS_ADMIN_ID: "admin"
+      JENKINS_ADMIN_PASSWORD: "admin"
+      CASC_JENKINS_CONFIG: "/var/jenkins_home/jcasc.yaml"  # JCasC config path
+      AGENT_SECRET_FILE: /var/jenkins_home/agent-secret.txt
+    networks:
+      - jenkins-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Standby Jenkins Master (Hot/Warm)
+  jenkins-standby:
+    image: jenkins/jenkins:lts
+    container_name: jenkins-standby
+    ports:
+      - "8081:8080"    # Web UI (Backup)
+      - "50001:50000"  # Agent port (Backup)
+    depends_on:
+      - jenkins-master
+    volumes:
+      - jenkins_ha:/var/jenkins_home  # Same shared volume
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./conf/jcasc.yaml:/var/jenkins_home/jcasc.yaml
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false -Djenkins.model.Jenkins.slaveAgentPort=50001"
+      JENKINS_ADMIN_ID: "admin"
+      JENKINS_ADMIN_PASSWORD: "admin"
+      CASC_JENKINS_CONFIG: "/var/jenkins_home/jcasc.yaml"
+      JENKINS_SECRET_FILE: /run/secrets/agent_secret
+    secrets:
+      - agent_secret      
+    networks:
+      - jenkins-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Load Balancer (NGINX)
+  load-balancer:
+    image: nginx:alpine
+    container_name: jenkins-lb
+    ports:
+      - "80:80"
+    volumes:
+      - ./conf/nginx.conf:/etc/nginx/nginx.conf  # LB config
+    depends_on:
+      - jenkins-master
+      - jenkins-standby
+    networks:
+      - jenkins-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  jenkins-agent:
+    image: jenkins/inbound-agent
+    container_name: jenkins-agent
+    depends_on:
+      load-balancer:
+        condition: service_healthy
+    environment:
+      JENKINS_URL: "http://jenkins-master:8080"  # Connect via LB
+      #JENKINS_URL: "http://load-balancer:80"  # Always use LB in HA
+      JENKINS_AGENT_NAME: "docker-agent"
+      JENKINS_SECRET: "${AGENT_SECRET}"
+      JENKINS_TUNNEL: "jenkins-master:50000" #,jenkins-standby:50001"  # Fallback tunnels
+    secrets:
+      - agent_secret
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  # Share host Docker socket
+      - ./agent-workdir:/home/jenkins/agent
+    networks:
+      - jenkins-net
+
+volumes:
+  agent-workdir:
+    driver: local
+  jenkins_home:
+  jenkins_ha:  # Local volume (single-node Docker Desktop)
+    name: jenkins_ha  # Explicit name for reuse
+
+networks:
+  jenkins-net:
+    driver: bridge

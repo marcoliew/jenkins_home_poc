@@ -1,3 +1,0 @@
-pipeline
-git
-workflow-aggregator  # Extends Pipeline features

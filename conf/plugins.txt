@@ -1,0 +1,14 @@
+apache-httpcomponents-client-4-api
+asm-api
+bouncycastle-api
+branch-api
+caffeine-api
+cloudbees-folder
+workflow-aggregator
+docker-plugin
+blueocean
+git-client
+git
+github-api
+json-api
+scm-api

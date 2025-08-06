@@ -3,31 +3,18 @@ services:
     image: jenkins/jenkins:lts
     container_name: jenkins-master
     ports:
-      - "8080:8080"   # Web UI
-      - "50000:50000" # Agent communication
+      - "8080:8080"
+      - "50000:50000"  # Keep if you might add agents later
     volumes:
       - jenkins_home:/var/jenkins_home
-      - /var/run/docker.sock:/var/run/docker.sock  # Allow Docker-outside-Docker (DoD)
-      - ./plugins.txt:/usr/share/jenkins/ref/plugins.txt  # Pre-install plugins
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./conf/plugins.txt:/usr/share/jenkins/ref/plugins.txt
+      - ./conf/jcasc.yaml:/var/jenkins_home/jcasc.yaml
+      #  ./conf:/usr/share/jenkins/ref/init.groovy.d
     environment:
-      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"  # Skip setup wizard (POC only)
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=false"
       JENKINS_ADMIN_ID: "admin"
       JENKINS_ADMIN_PASSWORD: "admin"
-    networks:
-      - jenkins-net
-
-  jenkins-agent:
-    image: jenkins/inbound-agent
-    container_name: jenkins-agent
-    depends_on:
-      - jenkins-master
-    environment:
-      JENKINS_URL: "http://jenkins-master:8080"  # Connects to master
-      JENKINS_AGENT_NAME: "docker-agent"
-      JENKINS_SECRET: "${AGENT_SECRET}"  # Replace with secret from master UI
-      JENKINS_WEB_SOCKET: "true" # Enable WebSocket
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock  # Share host Docker socket
     networks:
       - jenkins-net
 

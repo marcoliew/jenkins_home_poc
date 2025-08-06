@@ -1,0 +1,10 @@
+jenkins:
+  numExecutors: 4  # Set to how many concurrent jobs you want
+  mode: NORMAL     # Allows master to run jobs
+  
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "admin"
