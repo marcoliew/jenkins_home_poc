@@ -1,5 +1,5 @@
 pipeline {
-    agent {}  // Forces execution on master
+    agent any  // Forces execution on master
     stages {
         stage('Hello') {
             steps {
