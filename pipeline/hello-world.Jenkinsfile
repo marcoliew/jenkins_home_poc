@@ -17,8 +17,8 @@ pipeline {
             steps {
                 script {
                     // Example for Java/Maven:
-                    sh 'mvn clean package'
-                    
+                    // sh 'mvn clean package'
+                    echo "Building the application..."
                     // For Docker:
                     // sh 'docker build -t myapp .'
                 }
