@@ -1,5 +1,5 @@
 pipeline {
-    // agent { label 'master' }  // Forces execution on master
+    agent {}  // Forces execution on master
     stages {
         stage('Hello') {
             steps {
